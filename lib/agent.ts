@@ -77,7 +77,9 @@ export async function extractCriteria(query: string): Promise<SearchCriteria> {
 }
 
 function buildTypesenseQuery(criteria: SearchCriteria) {
-  // Hybrid-ish: BM25 across multiple fields + facet filters where confident.
+  // BM25 across weighted fields. We deliberately keep filters loose
+  // (skills + free-text in the query, soft year band as filter only when set)
+  // and let the LLM rerank pass do the precision work.
   const filters: string[] = [];
   if (criteria.minYears !== null) {
     filters.push(`yearsExperience:>=${criteria.minYears}`);
@@ -86,10 +88,10 @@ function buildTypesenseQuery(criteria: SearchCriteria) {
     filters.push(`yearsExperience:<=${criteria.maxYears}`);
   }
 
-  // Build a query string biased toward the skills + roles + freeText.
   const queryParts = [
     ...(criteria.skills ?? []),
     ...(criteria.roles ?? []),
+    ...(criteria.locations ?? []),
     criteria.freeText ?? "",
   ]
     .filter(Boolean)
@@ -100,7 +102,12 @@ function buildTypesenseQuery(criteria: SearchCriteria) {
     query_by: "skills,headline,summary,currentRole,pastCompanies,locations",
     query_by_weights: "5,3,3,2,2,2",
     filter_by: filters.join(" && "),
-    per_page: 20,
+    per_page: 25,
+    // Recall over precision at the BM25 stage — let the LLM rerank handle precision.
+    // Without this, multi-skill queries collapse to ~1 result because every token must hit.
+    drop_tokens_threshold: 10,
+    typo_tokens_threshold: 5,
+    num_typos: 2,
     prioritize_token_position: true,
   };
 }
