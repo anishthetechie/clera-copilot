@@ -69,5 +69,4 @@ npm run dev                       # http://localhost:3000
 - **Eval harness** — labeled `(candidate, variant, replied)` tuples to track
   variant-quality drift across model + prompt changes.
 
-Built by [Anish Lotake](https://github.com/anishthetechie) — built in ~90
-minutes as a working artifact for the Clera founding-engineer-intern application.
+Built by [Anish Lotake](https://github.com/anishthetechie) — built as a working artifact for the Clera founding-engineer-intern application.
