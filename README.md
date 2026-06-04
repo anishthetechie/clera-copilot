@@ -12,9 +12,6 @@ You paste a job description (or just describe who you want in plain English). An
 
 Stack — exactly the one in the JD: **React (Next.js App Router) · TypeScript · Supabase (Postgres) · Prisma · Typesense · Tailwind · Anthropic Claude**.
 
-## Why this demo
-
-The Clera job post specifically calls out: React + TS in production, Cursor, Supabase, Prisma, Typesense, agentic systems, founder-paced shipping, and LatAm hacker-houses. Every one of those is reflected here — including ~40 seeded candidates spanning the exact talent geography Clera operates in (SF + LatAm + Remote).
 
 ## Quick start
 
