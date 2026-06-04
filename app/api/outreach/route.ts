@@ -45,13 +45,22 @@ export async function POST(req: Request) {
       linkedinUrl: candidate.linkedinUrl ?? undefined,
     };
 
-    const { subject, body } = await generateOutreach({ candidate: doc, query });
+    const { variants } = await generateOutreach({ candidate: doc, query });
 
-    const saved = await prisma.outreachDraft.create({
-      data: { candidateId, query, subject, body },
-    });
+    // Persist the best-scoring variant for the pipeline log.
+    const top = [...variants].sort((a, b) => b.critique.score - a.critique.score)[0];
+    if (top) {
+      await prisma.outreachDraft.create({
+        data: {
+          candidateId,
+          query,
+          subject: top.subject,
+          body: `[${top.angleLabel}]\n\n${top.body}`,
+        },
+      });
+    }
 
-    return NextResponse.json({ id: saved.id, subject, body });
+    return NextResponse.json({ variants });
   } catch (err) {
     console.error("/api/outreach failed", err);
     return NextResponse.json(

@@ -9,11 +9,18 @@ const EXAMPLES = [
   "Mid-level engineer in LatAm, used Prisma + Supabase in production, willing to relocate to SF.",
 ];
 
+type OutreachVariant = {
+  angle: "craft" | "mission" | "culture";
+  angleLabel: string;
+  subject: string;
+  body: string;
+  critique: { score: number; strength: string; weakness: string };
+};
+
 type OutreachState = {
   candidateId: string;
   loading: boolean;
-  subject?: string;
-  body?: string;
+  variants?: OutreachVariant[];
   error?: string;
 };
 
@@ -64,12 +71,11 @@ export default function Page() {
         const j = await r.json().catch(() => ({}));
         throw new Error(j.error ?? `HTTP ${r.status}`);
       }
-      const data = (await r.json()) as { subject: string; body: string };
+      const data = (await r.json()) as { variants: OutreachVariant[] };
       setOutreach({
         candidateId: c.candidate.id,
         loading: false,
-        subject: data.subject,
-        body: data.body,
+        variants: data.variants,
       });
     } catch (e) {
       setOutreach({
@@ -99,9 +105,13 @@ export default function Page() {
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-md bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hi)]" />
           <div>
-            <div className="text-lg font-semibold">Clera Copilot</div>
+            <div className="text-lg font-semibold">
+              Reasoning &amp; Outreach Layer{" "}
+              <span className="text-[var(--muted)]">— a feature for Clera</span>
+            </div>
             <div className="text-xs text-[var(--muted)]">
-              Agentic candidate sourcing • React · TS · Supabase · Prisma · Typesense
+              Per-candidate fit reasoning + 3 angled outreach variants, drafted &amp; self-graded.
+              Search below is the test harness — drop the panel into Clera&apos;s existing candidate view.
             </div>
           </div>
         </div>
@@ -202,7 +212,9 @@ export default function Page() {
       )}
 
       <footer className="mt-16 border-t border-[var(--border)] pt-4 text-xs text-[var(--muted)]">
-        Built as a 1-hour demo for the Clera founding engineer intern role —{" "}
+        A feature prototype, not a competing product — the value is the{" "}
+        <span className="text-[var(--foreground)]/80">post-search reasoning + outreach panel</span>{" "}
+        that would plug into Clera&apos;s candidate detail view.{" "}
         <span className="mono">Claude · Next.js · Supabase · Prisma · Typesense</span>
       </footer>
     </main>
@@ -258,6 +270,53 @@ function CriteriaChips({ criteria }: { criteria: SearchResponse["criteria"] }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function VariantCard({ v }: { v: OutreachVariant }) {
+  const angleTint =
+    v.angle === "craft"
+      ? "border-sky-500/30 bg-sky-500/5"
+      : v.angle === "mission"
+        ? "border-violet-500/30 bg-violet-500/5"
+        : "border-emerald-500/30 bg-emerald-500/5";
+  const scoreTint =
+    v.critique.score >= 80
+      ? "text-emerald-300"
+      : v.critique.score >= 60
+        ? "text-amber-200"
+        : "text-zinc-400";
+  return (
+    <div className={`rounded-lg border ${angleTint} p-3`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="mono text-[10px] uppercase tracking-wider text-[var(--muted)]">
+          {v.angleLabel}
+        </div>
+        <div className={`mono text-xs font-medium ${scoreTint}`}>
+          {v.critique.score}/100
+        </div>
+      </div>
+      <div className="mt-2 text-xs font-medium leading-snug">{v.subject}</div>
+      <pre className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--foreground)]/90">
+        {v.body}
+      </pre>
+      <div className="mono mt-3 text-[10px] uppercase tracking-wider text-emerald-300">
+        + strength
+      </div>
+      <div className="text-xs text-[var(--foreground)]/80">{v.critique.strength}</div>
+      <div className="mono mt-2 text-[10px] uppercase tracking-wider text-amber-300">
+        ! weakness
+      </div>
+      <div className="text-xs text-[var(--foreground)]/80">{v.critique.weakness}</div>
+      <button
+        onClick={() =>
+          navigator.clipboard.writeText(`Subject: ${v.subject}\n\n${v.body}`)
+        }
+        className="mono mt-3 rounded border border-[var(--border)] px-2 py-1 text-[10px] uppercase tracking-wider text-[var(--muted)] hover:text-[var(--foreground)]"
+      >
+        copy
+      </button>
     </div>
   );
 }
@@ -389,32 +448,22 @@ function CandidateCard({
         )}
       </div>
 
-      {outreach && !outreach.loading && (outreach.subject || outreach.error) && (
-        <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface-elev)] p-3">
+      {outreach && !outreach.loading && (outreach.variants || outreach.error) && (
+        <div className="mt-4 space-y-2">
           {outreach.error ? (
-            <div className="text-sm text-red-300">{outreach.error}</div>
+            <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+              {outreach.error}
+            </div>
           ) : (
             <>
               <div className="mono text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                subject
+                Outreach variants — 3 angles · self-graded
               </div>
-              <div className="text-sm font-medium">{outreach.subject}</div>
-              <div className="mono mt-3 text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                body
+              <div className="grid gap-2 md:grid-cols-3">
+                {outreach.variants!.map((v) => (
+                  <VariantCard key={v.angle} v={v} />
+                ))}
               </div>
-              <pre className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                {outreach.body}
-              </pre>
-              <button
-                onClick={() =>
-                  navigator.clipboard.writeText(
-                    `Subject: ${outreach.subject}\n\n${outreach.body}`
-                  )
-                }
-                className="mono mt-3 rounded border border-[var(--border)] px-2 py-1 text-[10px] uppercase tracking-wider text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
-                copy
-              </button>
             </>
           )}
         </div>

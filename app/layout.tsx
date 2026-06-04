@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Clera Copilot — agentic candidate sourcing",
+  title: "Reasoning & Outreach Layer — a feature prototype for Clera",
   description:
-    "Describe who you're hiring in plain English. An LLM agent decomposes the query, searches a candidate index, ranks with reasoning, and drafts personalized outreach.",
+    "A drop-in candidate-decision panel: per-candidate fit reasoning + 3 angled outreach variants with self-grading. Built as a feature add-on for Clera's existing agentic recruiter.",
 };
 
 export default function RootLayout({

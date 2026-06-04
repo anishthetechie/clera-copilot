@@ -189,13 +189,58 @@ export async function rerankWithLLM(
   return out;
 }
 
+export type OutreachAngle = "craft" | "mission" | "culture";
+
+export interface OutreachVariant {
+  angle: OutreachAngle;
+  angleLabel: string;
+  subject: string;
+  body: string;
+  critique: {
+    score: number; // 0-100
+    strength: string;
+    weakness: string;
+  };
+}
+
+const ANGLE_LABELS: Record<OutreachAngle, string> = {
+  craft: "Craft-fit",
+  mission: "Mission / domain",
+  culture: "Culture / LatAm",
+};
+
+const ANGLE_INSTRUCTIONS: Record<OutreachAngle, string> = {
+  craft:
+    "Lead with the candidate's CRAFT — cite the most specific technical thing they've shipped that maps to this role's stack. Make them feel seen as an engineer.",
+  mission:
+    "Lead with the MISSION / domain alignment — why this candidate's stated interests or past roles in the recruiting/talent-AI space make Clera the obvious next step. Skip generic 'passion'.",
+  culture:
+    "Lead with the LIFESTYLE / culture angle — Clera operates out of SF and LatAm hacker-houses; if the candidate is based in or open to LatAm, lean in (cite a specific city if their profile shows one). Treat this as a real fit signal, not a gimmick.",
+};
+
+const VARIANT_SYSTEM = `You draft cold recruiter outreach as three angled VARIANTS for the same candidate.
+Each variant must:
+- Lead with the assigned angle in the first sentence.
+- Be 80-130 words in the body.
+- Reference 1-2 CONCRETE details from the candidate's profile (do not invent facts).
+- End with a low-friction CTA (one clear question, e.g. "open to a 15-min chat next week?").
+- Have NO emojis, NO "I hope this finds you well", NO buzzwords ("passionate", "rockstar", "ninja").
+- Subjects must be under 60 chars, lowercase, no clickbait.
+Additionally, for each variant, output a self-critique:
+- score: 0-100 honest grade on personalization + specificity + CTA
+- strength: one short sentence — the best line in this variant
+- weakness: one short sentence — the weakest part or the thing a skeptical recruiter would push back on
+Return ONLY valid JSON of shape:
+{ "variants": [ { "angle": "craft"|"mission"|"culture", "subject": string, "body": string, "critique": { "score": number, "strength": string, "weakness": string } } ] }
+No prose, no code fences.`;
+
 export async function generateOutreach(opts: {
   candidate: CandidateDoc;
   query: string;
   recruiterName?: string;
   companyName?: string;
   companyPitch?: string;
-}): Promise<{ subject: string; body: string }> {
+}): Promise<{ variants: OutreachVariant[] }> {
   const {
     candidate,
     query,
@@ -207,15 +252,8 @@ export async function generateOutreach(opts: {
   const anthropic = getAnthropic();
   const res = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 800,
-    system: `You draft short, specific recruiter outreach.
-Constraints:
-- 90-140 words in the body.
-- Reference 1-2 concrete details from the candidate's profile (do not invent facts).
-- Tie the role to the candidate's stated interests / domain.
-- No emojis. No "I hope this finds you well". No buzzwords like "passionate" or "rockstar".
-- End with a low-friction CTA (a single question).
-Return ONLY JSON: { "subject": string, "body": string }. No prose, no fences.`,
+    max_tokens: 2400,
+    system: VARIANT_SYSTEM,
     messages: [
       {
         role: "user",
@@ -232,7 +270,11 @@ Return ONLY JSON: { "subject": string, "body": string }. No prose, no fences.`,
             currentRole: candidate.currentRole,
             currentCompany: candidate.currentCompany,
             pastCompanies: candidate.pastCompanies,
+            locations: candidate.locations,
           },
+          angles: (Object.keys(ANGLE_INSTRUCTIONS) as OutreachAngle[]).map(
+            (a) => ({ angle: a, instruction: ANGLE_INSTRUCTIONS[a] })
+          ),
         }),
       },
     ],
@@ -241,5 +283,28 @@ Return ONLY JSON: { "subject": string, "body": string }. No prose, no fences.`,
   const text = res.content
     .map((b) => (b.type === "text" ? b.text : ""))
     .join("");
-  return safeJsonExtract<{ subject: string; body: string }>(text);
+  const parsed = safeJsonExtract<{ variants: Omit<OutreachVariant, "angleLabel">[] }>(
+    text
+  );
+
+  // Sort so the order is always craft → mission → culture for stable UI.
+  const order: OutreachAngle[] = ["craft", "mission", "culture"];
+  const byAngle = new Map(parsed.variants.map((v) => [v.angle, v]));
+  const variants: OutreachVariant[] = [];
+  for (const a of order) {
+    const v = byAngle.get(a);
+    if (!v) continue;
+    variants.push({
+      angle: a,
+      angleLabel: ANGLE_LABELS[a],
+      subject: v.subject,
+      body: v.body,
+      critique: {
+        score: Math.max(0, Math.min(100, Math.round(v.critique?.score ?? 0))),
+        strength: v.critique?.strength ?? "",
+        weakness: v.critique?.weakness ?? "",
+      },
+    });
+  }
+  return { variants };
 }
