@@ -102,9 +102,10 @@ function buildTypesenseQuery(criteria: SearchCriteria) {
     query_by: "skills,headline,summary,currentRole,pastCompanies,locations",
     query_by_weights: "5,3,3,2,2,2",
     filter_by: filters.join(" && "),
-    per_page: 25,
-    // Recall over precision at the BM25 stage — let the LLM rerank handle precision.
-    // Without this, multi-skill queries collapse to ~1 result because every token must hit.
+    // Cap the rerank set to stay under Vercel's serverless duration ceiling.
+    // 12 is the sweet spot: enough candidates for the LLM rerank to be meaningful,
+    // few enough that the two-call agent loop stays well under 60s.
+    per_page: 12,
     drop_tokens_threshold: 10,
     typo_tokens_threshold: 5,
     num_typos: 2,
