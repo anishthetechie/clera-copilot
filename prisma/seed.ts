@@ -1,5 +1,6 @@
 // Seeds Postgres (via Prisma) AND Typesense in one shot.
 // Run: npm run db:seed
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import {
   CANDIDATES_COLLECTION,
@@ -16,26 +17,26 @@ async function main() {
   await prisma.candidate.deleteMany();
 
   console.log(`→ Inserting ${SEED_CANDIDATES.length} candidates into Postgres`);
-  const created = await Promise.all(
-    SEED_CANDIDATES.map((c) =>
-      prisma.candidate.create({
-        data: {
-          name: c.name,
-          headline: c.headline,
-          summary: c.summary,
-          skills: c.skills,
-          seniority: c.seniority,
-          yearsExperience: c.yearsExperience,
-          locations: c.locations,
-          currentCompany: c.currentCompany,
-          currentRole: c.currentRole,
-          pastCompanies: c.pastCompanies,
-          githubUrl: c.githubUrl,
-          linkedinUrl: c.linkedinUrl,
-        },
-      })
-    )
-  );
+  const created: Awaited<ReturnType<typeof prisma.candidate.create>>[] = [];
+  for (const c of SEED_CANDIDATES) {
+    const row = await prisma.candidate.create({
+      data: {
+        name: c.name,
+        headline: c.headline,
+        summary: c.summary,
+        skills: c.skills,
+        seniority: c.seniority,
+        yearsExperience: c.yearsExperience,
+        locations: c.locations,
+        currentCompany: c.currentCompany,
+        currentRole: c.currentRole,
+        pastCompanies: c.pastCompanies,
+        githubUrl: c.githubUrl,
+        linkedinUrl: c.linkedinUrl,
+      },
+    });
+    created.push(row);
+  }
   console.log(`✓ Postgres seeded (${created.length})`);
 
   const typesense = getTypesenseClient();
