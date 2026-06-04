@@ -1,5 +1,7 @@
 # Clera Copilot
 
+https://clera-copilot.vercel.app/
+
 > An agentic candidate-sourcing demo built in one hour for the Clera founding engineer intern role.
 
 You paste a job description (or just describe who you want in plain English). An LLM agent:
