@@ -1,0 +1,59 @@
+// Clera Copilot — Prisma schema
+// Candidate pool + outreach drafts + lightweight pipeline state.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum PipelineStatus {
+  NEW
+  CONTACTED
+  REPLIED
+  INTERVIEWING
+  PASSED
+}
+
+model Candidate {
+  id              String   @id @default(cuid())
+  name            String
+  headline        String
+  summary         String   @db.Text
+  skills          String[]
+  seniority       String
+  yearsExperience Int
+  locations       String[]
+  currentCompany  String
+  currentRole     String
+  pastCompanies   String[]
+  githubUrl       String?
+  linkedinUrl     String?
+
+  status PipelineStatus @default(NEW)
+  notes  String?        @db.Text
+
+  outreachDrafts OutreachDraft[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OutreachDraft {
+  id          String   @id @default(cuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  query   String @db.Text
+  subject String
+  body    String @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([candidateId])
+}
